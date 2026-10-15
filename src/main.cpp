@@ -15,8 +15,16 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <vector>
 
-int test();
+struct ArticleMetadata {
+  std::string date;
+  std::string title;
+  std::string filename;
+  std::vector<std::string> headings; // for table of contents
+};
+
+// TODO: make struct with the metadata required: date, title, url, headings []
 
 namespace fs = std::filesystem;
 
@@ -67,17 +75,23 @@ int main() {
 
   // next is generation
   // start by collecting metadata for each file in writings
-  // TODO: make struct with the metadata required: date, title, url, headings []
   const fs::path writings_path{std::string(SOURCE_PATH) + "writings/"};
   const fs::path writings_out_path{std::string(SOURCE_PATH) + "out/writings/"};
+  // create the writings directory
+  fs::create_directory(writings_out_path);
+
   for (const auto &entry : fs::directory_iterator(writings_path)) {
-    std::cout << entry << std::endl;
+    // std::cout << entry << std::endl;
     std::ifstream md_file(entry.path());
     const std::string markdown((std::istreambuf_iterator<char>(md_file)),
                                std::istreambuf_iterator<char>());
+    fs::path html_filename(entry.path().filename());
+    // parse through metadata, will do later.
+    struct ArticleMetadata metadata;
+    metadata.filename =
+        html_filename.replace_extension(".html").generic_string();
 
     std::string html;
-
     const int result =
         md_html(markdown.data(), static_cast<MD_SIZE>(markdown.size()),
                 append_html, &html, MD_DIALECT_COMMONMARK, 0);
@@ -86,8 +100,21 @@ int main() {
       return 1;
     }
 
-    std::cout << markdown << '\n';
-    std::cout << html << '\n';
+    const fs::path html_writing_out_path{
+        std::string(writings_out_path.generic_string()) + metadata.filename};
+
+    std::cout << (writings_out_path.generic_string() + metadata.filename)
+              << std::endl;
+    std::ofstream myfile(html_writing_out_path);
+    if (myfile.is_open()) {
+      myfile << html;
+      myfile.close();
+
+    } else
+      std::cout << "cant open file" << std::endl;
+
+    // std::cout << markdown << '\n';
+    // std::cout << html << '\n';
   }
   return 0;
 }
