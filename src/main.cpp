@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <regex>
 #include <string>
 #include <vector>
 
@@ -80,6 +81,9 @@ int main() {
   // create the writings directory
   fs::create_directory(writings_out_path);
 
+  const fs::path templates_path{std::string(SOURCE_PATH) +
+                                "templates/writing.html"};
+
   for (const auto &entry : fs::directory_iterator(writings_path)) {
     // std::cout << entry << std::endl;
     std::ifstream md_file(entry.path());
@@ -105,10 +109,24 @@ int main() {
 
     std::cout << (writings_out_path.generic_string() + metadata.filename)
               << std::endl;
-    std::ofstream myfile(html_writing_out_path);
-    if (myfile.is_open()) {
-      myfile << html;
-      myfile.close();
+
+    std::ifstream html_template_path(templates_path);
+    std::string html_full((std::istreambuf_iterator<char>(html_template_path)),
+                          std::istreambuf_iterator<char>());
+
+    // need to replace the values of the html template file
+    // html_full = std::regex_replace(html_full, std::regex("{{ article_title
+    // }}"),
+    //                               "title");
+    const std::string target = "{{ article_content }}";
+    size_t pos = html_full.find(target);
+
+    html_full.replace(pos, target.length(), html);
+
+    std::ofstream html_file(html_writing_out_path);
+    if (html_file.is_open()) {
+      html_file << html_full;
+      html_file.close();
 
     } else
       std::cout << "cant open file" << std::endl;
