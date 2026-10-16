@@ -29,6 +29,7 @@ struct ArticleMetadata {
 
 namespace fs = std::filesystem;
 
+const std::string target_content = "{{ article_content }}";
 // ensure it ends with a '/'
 #define SOURCE_PATH "/home/neel/projects/notneelpatel.github.io/"
 
@@ -100,6 +101,7 @@ int main() {
   const fs::path templates_path{std::string(SOURCE_PATH) +
                                 "templates/writing.html"};
 
+  std::string entries_list;
   for (const auto &entry : fs::directory_iterator(writings_path)) {
     // std::cout << entry << std::endl;
     std::ifstream md_file(entry.path());
@@ -201,6 +203,30 @@ int main() {
 
     // std::cout << markdown << '\n';
     // std::cout << html << '\n';
+    entries_list += "<p>" + metadata.date + " <a href=\"" + "./writings/" +
+                    html_filename.generic_string() + "\">" + metadata.title +
+                    "</a></p>";
   }
+
+  // deal with writings page
+
+  const fs::path template_list_path{std::string(SOURCE_PATH) +
+                                    "templates/writing_list.html"};
+  const fs::path writings_list_path{std::string(out_path) + "writings.html"};
+
+  std::ifstream html_template_list_path(template_list_path);
+  std::string html_template_writing(
+      (std::istreambuf_iterator<char>(html_template_list_path)),
+      std::istreambuf_iterator<char>());
+
+  size_t pos = html_template_writing.find(target_content);
+  html_template_writing.replace(pos, target_content.length(), entries_list);
+
+  std::ofstream html_template_writing_file(writings_list_path);
+  if (html_template_writing_file.is_open()) {
+    html_template_writing_file << html_template_writing;
+    html_template_writing_file.close();
+  }
+
   return 0;
 }
