@@ -92,6 +92,105 @@ int writeFile(std::string data, fs::path path) {
     file << data;
     file.close();
   }
+  return 0;
+}
+
+ArticleMetadata processArticle(fs::directory_entry entry) {
+  const fs::path writings_out_path{std::string(SOURCE_PATH) + "out/writings/"};
+  fs::create_directory(writings_out_path);
+
+  const fs::path templates_path{std::string(SOURCE_PATH) +
+                                "templates/writing.html"};
+
+  std::ifstream md_file(entry.path());
+  const std::string markdown((std::istreambuf_iterator<char>(md_file)),
+                             std::istreambuf_iterator<char>());
+  fs::path html_filename(entry.path().filename());
+  // parse through metadata, will do later.
+  struct ArticleMetadata metadata;
+  metadata.filename = html_filename.replace_extension(".html").generic_string();
+
+  std::string html;
+  const int result =
+      md_html(markdown.data(), static_cast<MD_SIZE>(markdown.size()),
+              appendHtml, &html, MD_DIALECT_COMMONMARK, 0);
+
+  if (result != 0) {
+    std::cout << "MD4C HTML error, exiting" << std::endl;
+    // TODO: add null
+  }
+
+  size_t pos;
+  size_t pos2;
+
+  pos = html.find("<h1>") + 4;
+  pos2 = html.find("</h1>");
+  metadata.title = html.substr(pos, pos2 - pos);
+  html.replace(pos - 4, metadata.title.length() + 9, "");
+
+  pos = html.find("<h3>") + 4;
+  pos2 = html.find("</h3>");
+  metadata.date = html.substr(pos, pos2 - pos);
+  html.replace(pos - 4, metadata.date.length() + 9, "");
+
+  const fs::path html_writing_out_path{
+      std::string(writings_out_path.generic_string()) + metadata.filename};
+
+  std::ifstream html_template_path(templates_path);
+  std::string html_full((std::istreambuf_iterator<char>(html_template_path)),
+                        std::istreambuf_iterator<char>());
+
+  // augment headers for table of contents
+  char h_type;
+  int toc_h = 0;
+  std::string header_title;
+  std::string header_id;
+  pos = 0;
+  pos2 = 0;
+
+  std::string toc_html = "";
+  while ((pos = html.find("<h", pos)) != std::string::npos) {
+    h_type = html[pos + 2];
+
+    if (h_type < '3' || h_type > '5') {
+      pos += 2;
+      continue;
+    }
+
+    pos += 4;
+    pos2 = html.find(std::string("</h") + h_type, pos);
+    header_title = html.substr(pos, (pos2 - pos));
+    header_id = cleanForId(header_title);
+    std::string header_id_insert = " id=\"" + header_id + "\"";
+    html.insert(pos - 1, header_id_insert);
+    toc_h = h_type - '0' + 1;
+
+    pos += header_id_insert.size() + 9;
+    toc_html +=
+        ("<h" + std::to_string(toc_h) + "><a href=\"#" + header_id + "\">" +
+         header_title + "</a></h" + std::to_string(toc_h) + ">\n");
+  }
+
+  pos = html_full.find(target_content);
+  html_full.replace(pos, target_content.length(), html);
+
+  pos = html_full.find(target_title);
+  html_full.replace(pos, target_title.length(), metadata.title);
+
+  pos = html_full.find(target_date);
+  html_full.replace(pos, target_date.length(), metadata.date);
+
+  pos = html_full.find(target_toc);
+  html_full.replace(pos, target_toc.length(), toc_html);
+
+  std::ofstream html_file(html_writing_out_path);
+  if (html_file.is_open()) {
+    html_file << html_full;
+    html_file.close();
+
+  } else
+    std::cout << "cant open file" << std::endl;
+  return metadata;
 }
 
 int main() {
@@ -110,128 +209,23 @@ int main() {
   copyDir("styles/");
 
   // Generate article posts in writings/ dir
+  //
   const fs::path writings_path{std::string(SOURCE_PATH) + "writings/"};
-  const fs::path writings_out_path{std::string(SOURCE_PATH) + "out/writings/"};
-  fs::create_directory(writings_out_path);
-
-  const fs::path templates_path{std::string(SOURCE_PATH) +
-                                "templates/writing.html"};
-
   std::string entries_list;
   for (const auto &entry : fs::directory_iterator(writings_path)) {
-    std::ifstream md_file(entry.path());
-    const std::string markdown((std::istreambuf_iterator<char>(md_file)),
-                               std::istreambuf_iterator<char>());
-    fs::path html_filename(entry.path().filename());
-    // parse through metadata, will do later.
-    struct ArticleMetadata metadata;
-    metadata.filename =
-        html_filename.replace_extension(".html").generic_string();
-
-    std::string html;
-    const int result =
-        md_html(markdown.data(), static_cast<MD_SIZE>(markdown.size()),
-                appendHtml, &html, MD_DIALECT_COMMONMARK, 0);
-
-    if (result != 0) {
-      std::cout << "MD4C HTML error, exiting" << std::endl;
-      return 1;
-    }
-
-    size_t pos;
-    size_t pos2;
-
-    pos = html.find("<h1>") + 4;
-    pos2 = html.find("</h1>");
-    metadata.title = html.substr(pos, pos2 - pos);
-    html.replace(pos - 4, metadata.title.length() + 9, "");
-
-    pos = html.find("<h3>") + 4;
-    pos2 = html.find("</h3>");
-    metadata.date = html.substr(pos, pos2 - pos);
-    html.replace(pos - 4, metadata.date.length() + 9, "");
-
-    const fs::path html_writing_out_path{
-        std::string(writings_out_path.generic_string()) + metadata.filename};
-
-    std::ifstream html_template_path(templates_path);
-    std::string html_full((std::istreambuf_iterator<char>(html_template_path)),
-                          std::istreambuf_iterator<char>());
-
-    // augment headers for table of contents
-    char h_type;
-    int toc_h = 0;
-    std::string header_title;
-    std::string header_id;
-    pos = 0;
-    pos2 = 0;
-
-    std::string toc_html = "";
-    while ((pos = html.find("<h", pos)) != std::string::npos) {
-      h_type = html[pos + 2];
-
-      if (h_type < '3' || h_type > '5') {
-        pos += 2;
-        continue;
-      }
-
-      pos += 4;
-      pos2 = html.find(std::string("</h") + h_type, pos);
-      header_title = html.substr(pos, (pos2 - pos));
-      header_id = cleanForId(header_title);
-      std::string header_id_insert = " id=\"" + header_id + "\"";
-      html.insert(pos - 1, header_id_insert);
-      toc_h = h_type - '0' + 1;
-
-      pos += header_id_insert.size() + 9;
-      toc_html +=
-          ("<h" + std::to_string(toc_h) + "><a href=\"#" + header_id + "\">" +
-           header_title + "</a></h" + std::to_string(toc_h) + ">\n");
-    }
-
-    pos = html_full.find(target_content);
-    html_full.replace(pos, target_content.length(), html);
-
-    pos = html_full.find(target_title);
-    html_full.replace(pos, target_title.length(), metadata.title);
-
-    pos = html_full.find(target_date);
-    html_full.replace(pos, target_date.length(), metadata.date);
-
-    pos = html_full.find(target_toc);
-    html_full.replace(pos, target_toc.length(), toc_html);
-
-    std::ofstream html_file(html_writing_out_path);
-    if (html_file.is_open()) {
-      html_file << html_full;
-      html_file.close();
-
-    } else
-      std::cout << "cant open file" << std::endl;
-
+    struct ArticleMetadata metadata = processArticle(entry);
     entries_list += "<p>" + metadata.date + " <a href=\"" + "./writings/" +
-                    html_filename.generic_string() + "\">" + metadata.title +
-                    "</a></p>";
+                    metadata.filename + "\">" + metadata.title + "</a></p>";
   }
-
   // Construct Writings page (will completely redo later anyways)
-  const fs::path template_list_path{std::string(SOURCE_PATH) +
-                                    "templates/writing_list.html"};
   const fs::path writings_list_path{std::string(out_path) + "writings.html"};
 
-  std::ifstream html_template_list_path(template_list_path);
-  std::string html_template_writing(
-      (std::istreambuf_iterator<char>(html_template_list_path)),
-      std::istreambuf_iterator<char>());
+  std::string html_template_writing = readFile("templates/writing_list.html");
 
   size_t pos = html_template_writing.find(target_content);
   html_template_writing.replace(pos, target_content.length(), entries_list);
 
-  std::ofstream html_template_writing_file(writings_list_path);
-  if (html_template_writing_file.is_open()) {
-    html_template_writing_file << html_template_writing;
-    html_template_writing_file.close();
-  }
+  writeFile(html_template_writing, writings_list_path);
 
   // Construct index.html (add last updated and latest article)
   const fs::path home_out_path{std::string(out_path) + "index.html"};
