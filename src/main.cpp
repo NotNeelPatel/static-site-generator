@@ -254,8 +254,14 @@ int main() {
   pos = index_html.find(target_last_updated);
   index_html.replace(pos, target_last_updated.length(), last_updated);
 
+  std::string latest_entry = entries_list_v.front();
+  pos = latest_entry.find("<a href=\"", 0) + 9;
+  size_t pos2 = latest_entry.find("\">");
+  std::string l = latest_entry.substr(pos, pos2 - pos);
+
+  std::cout << l << std::endl;
   pos = index_html.find(target_latest);
-  index_html.replace(pos, target_latest.length(), "/writings/");
+  index_html.replace(pos, target_latest.length(), l);
 
   writeFile(index_html, home_out_path);
 
