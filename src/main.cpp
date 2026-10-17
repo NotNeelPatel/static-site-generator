@@ -3,6 +3,7 @@
 #include "md4c-html.h"
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
@@ -25,8 +26,16 @@ const std::string target_content = "{{ article_content }}";
 const std::string target_toc = "{{ article_toc }}";
 const std::string target_last_updated = "{{ last_updated }}";
 const std::string target_latest = "{{ latest }}";
-// ensure it ends with a '/'
-#define SOURCE_PATH "/home/neel/projects/notneelpatel.github.io/"
+
+std::string get_env() {
+  const char *source_path_env = std::getenv("SSG_SITE_PATH");
+  if (source_path_env == nullptr) {
+    return "/home/neel/projects/notneelpatel.github.io/";
+  }
+  return std::string(source_path_env);
+}
+
+const std::string source_path_env = get_env();
 
 bool pathExists(const fs::path &p, fs::file_status s = fs::file_status{}) {
   if (fs::status_known(s) ? fs::exists(s) : fs::exists(p))
@@ -67,11 +76,11 @@ int copyDir(std::string dir_name, std::string out_name = "same") {
   if (!(out_name.empty()) && (out_name.back() != '/')) {
     out_name.push_back('/');
   }
-  const fs::path dir_path{std::string(SOURCE_PATH) + dir_name};
+  const fs::path dir_path{std::string(source_path_env) + dir_name};
   if (!(pathExists(dir_path)))
     return 1;
 
-  const fs::path out_path{std::string(SOURCE_PATH) + "out/" + out_name};
+  const fs::path out_path{std::string(source_path_env) + "out/" + out_name};
 
   fs::copy(dir_path, out_path,
            fs::copy_options::recursive | fs::copy_options::update_existing);
@@ -79,7 +88,7 @@ int copyDir(std::string dir_name, std::string out_name = "same") {
 }
 
 std::string readFile(std::string path_string) {
-  const fs::path path{std::string(SOURCE_PATH) + path_string};
+  const fs::path path{std::string(source_path_env) + path_string};
   std::ifstream read_file(path);
   std::string data((std::istreambuf_iterator<char>(read_file)),
                    std::istreambuf_iterator<char>());
@@ -96,10 +105,11 @@ int writeFile(std::string data, fs::path path) {
 }
 
 ArticleMetadata processArticle(fs::directory_entry entry) {
-  const fs::path writings_out_path{std::string(SOURCE_PATH) + "out/writings/"};
+  const fs::path writings_out_path{std::string(source_path_env) +
+                                   "out/writings/"};
   fs::create_directory(writings_out_path);
 
-  const fs::path templates_path{std::string(SOURCE_PATH) +
+  const fs::path templates_path{std::string(source_path_env) +
                                 "templates/writing.html"};
 
   std::ifstream md_file(entry.path());
@@ -195,12 +205,12 @@ ArticleMetadata processArticle(fs::directory_entry entry) {
 
 int main() {
   // First check for the website directories specified in the config
-  const fs::path source_path{SOURCE_PATH};
+  const fs::path source_path{source_path_env};
   if (!(pathExists(source_path)))
     return 1;
 
   // create dir for output
-  const fs::path out_path{std::string(SOURCE_PATH) + "out/"};
+  const fs::path out_path{std::string(source_path_env) + "out/"};
   fs::create_directory(out_path);
 
   // Copy static data
@@ -209,7 +219,7 @@ int main() {
   copyDir("styles/");
 
   // Generate article posts in writings/ dir
-  const fs::path writings_path{std::string(SOURCE_PATH) + "writings/"};
+  const fs::path writings_path{std::string(source_path_env) + "writings/"};
   std::vector<std::string> entries_list_v;
 
   for (const auto &entry : fs::directory_iterator(writings_path)) {
