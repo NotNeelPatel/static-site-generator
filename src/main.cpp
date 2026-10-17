@@ -209,13 +209,20 @@ int main() {
   copyDir("styles/");
 
   // Generate article posts in writings/ dir
-  //
   const fs::path writings_path{std::string(SOURCE_PATH) + "writings/"};
-  std::string entries_list;
+  std::vector<std::string> entries_list_v;
+
   for (const auto &entry : fs::directory_iterator(writings_path)) {
     struct ArticleMetadata metadata = processArticle(entry);
-    entries_list += "<p>" + metadata.date + " <a href=\"" + "./writings/" +
-                    metadata.filename + "\">" + metadata.title + "</a></p>";
+    entries_list_v.push_back("<p>" + metadata.date + " <a href=\"" +
+                             "./writings/" + metadata.filename + "\">" +
+                             metadata.title + "</a></p>");
+  }
+
+  std::sort(entries_list_v.begin(), entries_list_v.end(), std::greater<>());
+  std::string entries_list;
+  for (std::string &s : entries_list_v) {
+    entries_list += s;
   }
   // Construct Writings page (will completely redo later anyways)
   const fs::path writings_list_path{std::string(out_path) + "writings.html"};
