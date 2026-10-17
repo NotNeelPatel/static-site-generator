@@ -11,7 +11,9 @@
  */
 
 #include "md4c-html.h"
+#include <algorithm>
 #include <cctype>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -22,7 +24,7 @@ struct ArticleMetadata {
   std::string date;
   std::string title;
   std::string filename;
-  std::vector<std::string> headings; // for table of contents
+  std::vector<std::string> entries_list; // for table of contents
 };
 
 // TODO: make struct with the metadata required: date, title, url, headings []
@@ -30,6 +32,8 @@ struct ArticleMetadata {
 namespace fs = std::filesystem;
 
 const std::string target_content = "{{ article_content }}";
+const std::string target_last_updated = "{{ last_updated }}";
+const std::string target_latest = "{{ latest }}";
 // ensure it ends with a '/'
 #define SOURCE_PATH "/home/neel/projects/notneelpatel.github.io/"
 
@@ -63,11 +67,9 @@ std::string clean_for_id(std::string title) {
 }
 
 int main() {
-  // TODO: add command line arguments when needed
-
   // First check for the website directories specified in the config
-  const fs::path source_path{SOURCE_PATH};
-  if (!(path_exists(source_path)))
+  fs::path path{SOURCE_PATH};
+  if (!(path_exists(path)))
     return 1;
 
   // create dir for output
@@ -226,6 +228,35 @@ int main() {
   if (html_template_writing_file.is_open()) {
     html_template_writing_file << html_template_writing;
     html_template_writing_file.close();
+  }
+
+  // update index
+  const fs::path home_template_path{std::string(SOURCE_PATH) +
+                                    "templates/index.html"};
+  const fs::path home_out_path{std::string(out_path) + "index.html"};
+
+  std::ifstream read_home(home_template_path);
+  std::string index_html((std::istreambuf_iterator<char>(read_home)),
+                         std::istreambuf_iterator<char>());
+
+  time_t timestamp;
+  time(&timestamp);
+
+  std::string lastUpdated = ctime(&timestamp);
+
+  std::transform(lastUpdated.begin(), lastUpdated.end(), lastUpdated.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+
+  pos = index_html.find(target_last_updated);
+  index_html.replace(pos, target_last_updated.length(), lastUpdated);
+
+  pos = index_html.find(target_latest);
+  index_html.replace(pos, target_latest.length(), "/writings/");
+
+  std::ofstream html_template_index_file(home_out_path);
+  if (html_template_index_file.is_open()) {
+    html_template_index_file << index_html;
+    html_template_index_file.close();
   }
 
   return 0;
