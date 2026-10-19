@@ -158,6 +158,7 @@ ArticleMetadata processArticle(fs::directory_entry entry) {
   pos = 0;
   pos2 = 0;
 
+  // find headers for table of contents
   std::string toc_html = "";
   while ((pos = html.find("<h", pos)) != std::string::npos) {
     h_type = html[pos + 2];
@@ -179,6 +180,19 @@ ArticleMetadata processArticle(fs::directory_entry entry) {
     toc_html +=
         ("<h" + std::to_string(toc_h) + "><a href=\"#" + header_id + "\">" +
          header_title + "</a></h" + std::to_string(toc_h) + ">\n");
+  }
+
+  pos = 0;
+  pos2 = 0;
+  std::string caption;
+  // find images for captions
+  while ((pos = html.find("alt=\"", pos)) != std::string::npos) {
+    pos += 5;
+    pos2 = html.find("\">", pos);
+    caption = html.substr(pos, (pos2 - pos));
+    std::cout << caption << std::endl;
+    html.insert(pos2 + 6, "<p class = \"caption\">" + caption + "</p>");
+    pos = pos2 + caption.size() + 25;
   }
 
   pos = html_full.find(target_content);
